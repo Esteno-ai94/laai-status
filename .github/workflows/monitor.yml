@@ -1,0 +1,66 @@
+# Monitor esteno.io and deploy status page to GitHub Pages
+# Runs on schedule (every 10 min) and on manual dispatch
+
+name: Monitor and Deploy
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/10 * * * *'  # every 10 minutes
+
+permissions:
+  contents: write   # push updated status/history
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    outputs:
+      overall: ${{ steps.check.outputs.overall }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install requests
+        run: pip install requests
+
+      - name: Run status checker
+        id: check
+        run: python scripts/check.py >> $GITHUB_OUTPUT
+
+      - name: Commit generated files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/status.json public/history.json
+          git diff --staged --quiet || git commit -m "chore: update status and history [skip ci]"
+          git push || true
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'public'
+
+  deploy:
+    needs: monitor
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4

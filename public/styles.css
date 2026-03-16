@@ -1,0 +1,188 @@
+/* LAAI Status Page — minimal, clean */
+
+:root {
+  --bg: #0f1419;
+  --surface: #1a2129;
+  --text: #e6edf3;
+  --text-muted: #8b949e;
+  --border: #30363d;
+  --operational: #3fb950;
+  --degraded: #d29922;
+  --down: #f85149;
+  --link: #58a6ff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+a {
+  color: var(--link);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+.container {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+header {
+  margin-bottom: 2rem;
+}
+header h1 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin: 0 0 0.25rem 0;
+}
+.subtitle {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+section {
+  margin-bottom: 2rem;
+}
+section h2 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  margin: 0 0 0.75rem 0;
+}
+
+/* Overall status */
+.overall .badge {
+  display: inline-block;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 1rem;
+  text-transform: capitalize;
+}
+.overall .badge.operational {
+  background: rgba(63, 185, 80, 0.2);
+  color: var(--operational);
+}
+.overall .badge.degraded {
+  background: rgba(210, 153, 34, 0.2);
+  color: var(--degraded);
+}
+.overall .badge.down {
+  background: rgba(248, 81, 73, 0.2);
+  color: var(--down);
+}
+.last-checked {
+  margin: 0.5rem 0 0 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+/* Uptime cards */
+.uptime-cards {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.uptime-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  min-width: 140px;
+}
+.uptime-value {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+.uptime-label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* Service card */
+.services-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.service-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.service-card .name {
+  font-weight: 500;
+}
+.service-card .status {
+  font-size: 0.9rem;
+  text-transform: capitalize;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+.service-card .status.operational { color: var(--operational); }
+.service-card .status.degraded { color: var(--degraded); }
+.service-card .status.down { color: var(--down); }
+.service-card .meta {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* Incidents table */
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+th, td {
+  padding: 0.6rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+th {
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+tr:last-child td {
+  border-bottom: none;
+}
+tr.incident-down td { color: var(--down); }
+tr.incident-degraded td { color: var(--degraded); }
+
+footer {
+  margin-top: 2.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}

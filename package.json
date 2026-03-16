@@ -1,0 +1,7 @@
+{
+  "name": "laai-status-page",
+  "private": true,
+  "scripts": {
+    "dev": "npx --yes serve public -l 3000"
+  }
+}
