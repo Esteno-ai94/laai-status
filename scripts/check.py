@@ -110,8 +110,13 @@ def main() -> None:
     history = trim_history(history, HISTORY_MAX_RECORDS)
     save_json(HISTORY_FILE, history)
 
-    # GitHub Actions output for "overall"
-    print(f"overall={status_label}")
+    # GitHub Actions output for "overall" (write to file when in CI, else stdout for redirect)
+    gh_output = os.environ.get("GITHUB_OUTPUT")
+    if gh_output:
+        with open(gh_output, "a", encoding="utf-8") as f:
+            f.write(f"overall={status_label}\n")
+    else:
+        print(f"overall={status_label}")
 
 
 if __name__ == "__main__":
