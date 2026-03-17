@@ -1,5 +1,6 @@
 # This is the only GitHub Pages deployment workflow for this repo.
 # The published site root is the `public/` directory, uploaded as the Pages artifact.
+# The checker (scripts/check.py) uses only the Python standard library; no pip install needed.
 # Monitor esteno.io and deploy status page; runs on schedule (every 10 min) and on manual dispatch.
 
 name: Monitor and Deploy
@@ -31,9 +32,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
-      - name: Install requests
-        run: python -m pip install --upgrade pip requests
 
       - name: Run status checker
         id: check

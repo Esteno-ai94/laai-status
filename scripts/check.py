@@ -1,21 +1,16 @@
 #!/usr/bin/env python3
 """
 Status checker for LAAI status page.
-Monitors https://esteno.io and writes status.json and history.json to public/.
+Uses only the Python standard library. Monitors https://esteno.io and writes
+status.json and history.json to public/.
 """
 
 import json
 import os
 import sys
+import urllib.error
+import urllib.request
 from datetime import datetime, timezone
-
-try:
-    import requests
-except ImportError:
-    # Fundamental problem: dependency is missing. Fail fast so the workflow
-    # can be fixed instead of silently reporting incorrect status.
-    print("Install requests: pip install requests", file=sys.stderr)
-    sys.exit(1)
 
 # Config
 PUBLIC_DIR = os.path.join(os.path.dirname(__file__), "..", "public")
@@ -32,22 +27,24 @@ SERVICE_URL = "https://esteno.io"
 
 def check_url(url: str, timeout: int) -> tuple[str, int | None, float | None]:
     """
-    GET url and return (status_label, http_code or None, response_time_ms or None).
+    GET url (follow redirects) and return (status_label, http_code or None, response_time_ms or None).
     status_label: "operational" | "degraded" | "down"
     """
+    start = datetime.now(timezone.utc)
+    req = urllib.request.Request(url, method="GET")
     try:
-        start = datetime.now(timezone.utc)
-        r = requests.get(url, timeout=timeout, allow_redirects=True)
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            elapsed_ms = (datetime.now(timezone.utc) - start).total_seconds() * 1000
+            code = resp.status
+            if 200 <= code < 400:
+                if elapsed_ms < DEGRADED_MS:
+                    return "operational", code, round(elapsed_ms, 2)
+                return "degraded", code, round(elapsed_ms, 2)
+            return "down", code, round(elapsed_ms, 2)
+    except urllib.error.HTTPError as e:
         elapsed_ms = (datetime.now(timezone.utc) - start).total_seconds() * 1000
-        code = r.status_code
-        if 200 <= code < 400:
-            if elapsed_ms < DEGRADED_MS:
-                return "operational", code, round(elapsed_ms, 2)
-            return "degraded", code, round(elapsed_ms, 2)
-        return "down", code, round(elapsed_ms, 2)
-    except requests.exceptions.Timeout:
-        return "down", None, None
-    except requests.exceptions.RequestException:
+        return "down", e.code, round(elapsed_ms, 2)
+    except (urllib.error.URLError, OSError, TimeoutError) as _:
         return "down", None, None
 
 
@@ -57,9 +54,9 @@ def load_json(path: str, default: dict | list):
         return default
     try:
         with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
+            return data
     except Exception:
-        # Malformed or unreadable JSON; caller will decide how to handle.
         return default
 
 
@@ -67,15 +64,6 @@ def save_json(path: str, data: dict | list) -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
-
-
-def overall_from_statuses(statuses: list[str]) -> str:
-    """Derive overall status: down > degraded > operational."""
-    if "down" in statuses:
-        return "down"
-    if "degraded" in statuses:
-        return "degraded"
-    return "operational"
 
 
 def trim_history(records: list, max_records: int) -> list:
@@ -98,7 +86,6 @@ def write_overall_output(status_label: str) -> None:
             with open(gh_output, "a", encoding="utf-8") as f:
                 f.write(line)
         except OSError:
-            # Fall back to stdout if we cannot write to the file.
             sys.stdout.write(line)
     else:
         sys.stdout.write(line)
@@ -107,18 +94,13 @@ def write_overall_output(status_label: str) -> None:
 def run_check() -> str:
     """
     Perform a single check and update status/history.
-
-    Returns the overall status label so callers can decide what to do,
-    but this function is expected to succeed (not raise) for normal
-    monitoring failures like timeouts, HTTP errors, etc.
+    Returns the overall status label. Does not raise for normal monitoring failures.
     """
-    # Ensure public directory exists up front.
     os.makedirs(PUBLIC_DIR, exist_ok=True)
 
     status_label, http_code, response_time_ms = check_url(SERVICE_URL, TIMEOUT_SEC)
     now = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
-    # Build current status
     status_data = {
         "updated": now,
         "overall": status_label,
@@ -134,19 +116,16 @@ def run_check() -> str:
     }
     save_json(STATUS_FILE, status_data)
 
-    # Append to history (defensive against malformed/empty JSON)
     history = load_json(HISTORY_FILE, [])
     if not isinstance(history, list):
         history = []
-    history.append(
-        {
-            "timestamp": now,
-            "service": SERVICE_NAME,
-            "status": status_label,
-            "http_status": http_code,
-            "response_time_ms": response_time_ms,
-        }
-    )
+    history.append({
+        "timestamp": now,
+        "service": SERVICE_NAME,
+        "status": status_label,
+        "http_status": http_code,
+        "response_time_ms": response_time_ms,
+    })
     history = trim_history(history, HISTORY_MAX_RECORDS)
     save_json(HISTORY_FILE, history)
 
@@ -156,22 +135,16 @@ def run_check() -> str:
 def main() -> int:
     """
     Entry point for CLI / GitHub Actions.
-
-    Normal monitoring failures (timeouts, HTTP 4xx/5xx, DNS/TLS errors)
-    must not crash the script. Unexpected exceptions are caught and
-    treated as a `down` status while still attempting to write valid
-    status/history if possible.
+    Normal monitoring failures must not crash the script. Exit 0 for all normal outcomes.
     """
     overall_status = "down"
 
     try:
         overall_status = run_check()
-    except Exception:
-        # Unexpected failure: best-effort write of a `down` status record
-        # so the page stays valid instead of breaking entirely.
+    except Exception as e:
+        # Truly unexpected: log once to stderr, then write down status and exit 0.
+        print(f"[check.py] unexpected error: {e}", file=sys.stderr)
         now = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
-
-        # Ensure public directory exists.
         os.makedirs(PUBLIC_DIR, exist_ok=True)
 
         fallback_status = {
@@ -190,34 +163,25 @@ def main() -> int:
         try:
             save_json(STATUS_FILE, fallback_status)
         except Exception:
-            # If even writing status fails, there's not much else we can do.
             pass
 
-        # Try to append a history row with `down` status using the same schema.
         try:
             history = load_json(HISTORY_FILE, [])
             if not isinstance(history, list):
                 history = []
-            history.append(
-                {
-                    "timestamp": now,
-                    "service": SERVICE_NAME,
-                    "status": "down",
-                    "http_status": None,
-                    "response_time_ms": None,
-                }
-            )
+            history.append({
+                "timestamp": now,
+                "service": SERVICE_NAME,
+                "status": "down",
+                "http_status": None,
+                "response_time_ms": None,
+            })
             history = trim_history(history, HISTORY_MAX_RECORDS)
             save_json(HISTORY_FILE, history)
         except Exception:
-            # Ignore history write failures; status.json is enough to keep UI valid.
             pass
 
-    # Always try to write the overall output, even if we had to fall back to `down`.
     write_overall_output(overall_status)
-
-    # Exit code 0 for all normal monitoring paths; only fundamental issues
-    # like a missing `requests` dependency cause a non-zero exit earlier.
     return 0
 
 
