@@ -12,6 +12,8 @@ from datetime import datetime, timezone
 try:
     import requests
 except ImportError:
+    # Fundamental problem: dependency is missing. Fail fast so the workflow
+    # can be fixed instead of silently reporting incorrect status.
     print("Install requests: pip install requests", file=sys.stderr)
     sys.exit(1)
 
@@ -50,10 +52,15 @@ def check_url(url: str, timeout: int) -> tuple[str, int | None, float | None]:
 
 
 def load_json(path: str, default: dict | list):
-    if os.path.isfile(path):
+    """Load JSON from path, falling back to default on any error."""
+    if not os.path.isfile(path):
+        return default
+    try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
-    return default
+    except Exception:
+        # Malformed or unreadable JSON; caller will decide how to handle.
+        return default
 
 
 def save_json(path: str, data: dict | list) -> None:
@@ -78,7 +85,36 @@ def trim_history(records: list, max_records: int) -> list:
     return records[-max_records:]
 
 
-def main() -> None:
+def write_overall_output(status_label: str) -> None:
+    """
+    Write overall status for GitHub Actions and local runs:
+    - If GITHUB_OUTPUT is set, append `overall=<value>` to that file.
+    - Otherwise print `overall=<value>` to stdout.
+    """
+    gh_output = os.environ.get("GITHUB_OUTPUT")
+    line = f"overall={status_label}\n"
+    if gh_output:
+        try:
+            with open(gh_output, "a", encoding="utf-8") as f:
+                f.write(line)
+        except OSError:
+            # Fall back to stdout if we cannot write to the file.
+            sys.stdout.write(line)
+    else:
+        sys.stdout.write(line)
+
+
+def run_check() -> str:
+    """
+    Perform a single check and update status/history.
+
+    Returns the overall status label so callers can decide what to do,
+    but this function is expected to succeed (not raise) for normal
+    monitoring failures like timeouts, HTTP errors, etc.
+    """
+    # Ensure public directory exists up front.
+    os.makedirs(PUBLIC_DIR, exist_ok=True)
+
     status_label, http_code, response_time_ms = check_url(SERVICE_URL, TIMEOUT_SEC)
     now = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
@@ -98,26 +134,92 @@ def main() -> None:
     }
     save_json(STATUS_FILE, status_data)
 
-    # Append to history
+    # Append to history (defensive against malformed/empty JSON)
     history = load_json(HISTORY_FILE, [])
-    history.append({
-        "timestamp": now,
-        "service": SERVICE_NAME,
-        "status": status_label,
-        "http_status": http_code,
-        "response_time_ms": response_time_ms,
-    })
+    if not isinstance(history, list):
+        history = []
+    history.append(
+        {
+            "timestamp": now,
+            "service": SERVICE_NAME,
+            "status": status_label,
+            "http_status": http_code,
+            "response_time_ms": response_time_ms,
+        }
+    )
     history = trim_history(history, HISTORY_MAX_RECORDS)
     save_json(HISTORY_FILE, history)
 
-    # GitHub Actions output for "overall" (write to file when in CI, else stdout for redirect)
-    gh_output = os.environ.get("GITHUB_OUTPUT")
-    if gh_output:
-        with open(gh_output, "a", encoding="utf-8") as f:
-            f.write(f"overall={status_label}\n")
-    else:
-        print(f"overall={status_label}")
+    return status_label
+
+
+def main() -> int:
+    """
+    Entry point for CLI / GitHub Actions.
+
+    Normal monitoring failures (timeouts, HTTP 4xx/5xx, DNS/TLS errors)
+    must not crash the script. Unexpected exceptions are caught and
+    treated as a `down` status while still attempting to write valid
+    status/history if possible.
+    """
+    overall_status = "down"
+
+    try:
+        overall_status = run_check()
+    except Exception:
+        # Unexpected failure: best-effort write of a `down` status record
+        # so the page stays valid instead of breaking entirely.
+        now = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+        # Ensure public directory exists.
+        os.makedirs(PUBLIC_DIR, exist_ok=True)
+
+        fallback_status = {
+            "updated": now,
+            "overall": "down",
+            "services": [
+                {
+                    "name": SERVICE_NAME,
+                    "url": SERVICE_URL,
+                    "status": "down",
+                    "http_status": None,
+                    "response_time_ms": None,
+                }
+            ],
+        }
+        try:
+            save_json(STATUS_FILE, fallback_status)
+        except Exception:
+            # If even writing status fails, there's not much else we can do.
+            pass
+
+        # Try to append a history row with `down` status using the same schema.
+        try:
+            history = load_json(HISTORY_FILE, [])
+            if not isinstance(history, list):
+                history = []
+            history.append(
+                {
+                    "timestamp": now,
+                    "service": SERVICE_NAME,
+                    "status": "down",
+                    "http_status": None,
+                    "response_time_ms": None,
+                }
+            )
+            history = trim_history(history, HISTORY_MAX_RECORDS)
+            save_json(HISTORY_FILE, history)
+        except Exception:
+            # Ignore history write failures; status.json is enough to keep UI valid.
+            pass
+
+    # Always try to write the overall output, even if we had to fall back to `down`.
+    write_overall_output(overall_status)
+
+    # Exit code 0 for all normal monitoring paths; only fundamental issues
+    # like a missing `requests` dependency cause a non-zero exit earlier.
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

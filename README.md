@@ -38,8 +38,31 @@ README.md
 ```bash
 pip install requests
 python scripts/check.py
-# Writes/updates public/status.json and public/history.json; prints overall=… for GITHUB_OUTPUT.
+# Writes/updates public/status.json and public/history.json; prints overall=… for local runs.
 ```
+
+## Troubleshooting
+
+- **Checker exits with code 1 in GitHub Actions**  
+  - The script only exits non‑zero when it is fundamentally broken (for example, `requests` is not installed).  
+  - Verify the workflow step `pip install --no-deps requests` runs before `python scripts/check.py`.  
+  - For normal monitoring issues (timeouts, HTTP 4xx/5xx, DNS/TLS errors) the script still exits 0 and reports `overall=down`.
+
+- **Malformed or unreadable JSON in `public/status.json` or `public/history.json`**  
+  - The checker defensively treats unreadable JSON as empty and rewrites valid files on the next run.  
+  - If you want to reset manually, you can delete `public/status.json` and `public/history.json`; the next checker run will recreate them.
+
+- **Missing `public/` directory**  
+  - The checker creates `public/` and the JSON files on each run if they do not exist.  
+  - You do not need to create the directory yourself for GitHub Actions; it is handled by the script.
+
+- **Local testing**  
+  - Run:
+    ```bash
+    pip install requests
+    python scripts/check.py
+    ```
+  - Check `public/status.json` and `public/history.json` to confirm that new entries were written and that `overall=<value>` was printed to the terminal.
 
 ## UI
 
