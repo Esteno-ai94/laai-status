@@ -10,7 +10,7 @@ import os
 import sys
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 # Config
 PUBLIC_DIR = os.path.join(os.path.dirname(__file__), "..", "public")
@@ -18,8 +18,8 @@ STATUS_FILE = os.path.join(PUBLIC_DIR, "status.json")
 HISTORY_FILE = os.path.join(PUBLIC_DIR, "history.json")
 TIMEOUT_SEC = 15
 DEGRADED_MS = 5000
-# ~10 min intervals, 7 days = 1008; keep 14 days for buffer
-HISTORY_MAX_RECORDS = 2016
+# Retain records newer than this many days; cadence-independent.
+HISTORY_RETENTION_DAYS = 90
 
 SERVICE_NAME = "Esteno Website"
 SERVICE_URL = "https://esteno.io"
@@ -66,11 +66,36 @@ def save_json(path: str, data: dict | list) -> None:
         json.dump(data, f, indent=2)
 
 
-def trim_history(records: list, max_records: int) -> list:
-    """Keep the most recent max_records."""
-    if len(records) <= max_records:
-        return records
-    return records[-max_records:]
+def trim_history_by_time(records: list, now_utc: datetime, retention_days: int) -> list:
+    """
+    Drop records older than retention_days before now_utc.
+    The cutoff is exclusive: a record timestamped exactly at
+    (now_utc - retention_days) is kept.
+    Records with an unparseable timestamp are kept (fail-open) and a
+    warning is printed to stderr so data is never silently discarded.
+    """
+    # Truncate to whole seconds so the cutoff is comparable to stored timestamps,
+    # which are also serialised at second precision. A record from exactly
+    # (now - retention_days) is kept (>=).
+    cutoff = (now_utc - timedelta(days=retention_days)).replace(microsecond=0)
+    kept = []
+    for r in records:
+        ts_raw = r.get("timestamp") if isinstance(r, dict) else None
+        if not ts_raw:
+            kept.append(r)
+            continue
+        try:
+            # fromisoformat handles both "Z" suffix (Python 3.11+) and "+00:00".
+            ts_str = ts_raw.replace("Z", "+00:00")
+            ts = datetime.fromisoformat(ts_str)
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            if ts >= cutoff:
+                kept.append(r)
+        except (ValueError, AttributeError):
+            print(f"[check.py] warning: unparseable timestamp {ts_raw!r}, keeping record", file=sys.stderr)
+            kept.append(r)
+    return kept
 
 
 def write_overall_output(status_label: str) -> None:
@@ -126,7 +151,8 @@ def run_check() -> str:
         "http_status": http_code,
         "response_time_ms": response_time_ms,
     })
-    history = trim_history(history, HISTORY_MAX_RECORDS)
+    now_utc = datetime.now(timezone.utc)
+    history = trim_history_by_time(history, now_utc, HISTORY_RETENTION_DAYS)
     save_json(HISTORY_FILE, history)
 
     return status_label
@@ -176,7 +202,7 @@ def main() -> int:
                 "http_status": None,
                 "response_time_ms": None,
             })
-            history = trim_history(history, HISTORY_MAX_RECORDS)
+            history = trim_history_by_time(history, datetime.now(timezone.utc), HISTORY_RETENTION_DAYS)
             save_json(HISTORY_FILE, history)
         except Exception:
             pass
