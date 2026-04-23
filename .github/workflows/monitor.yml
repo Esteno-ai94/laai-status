@@ -1,7 +1,20 @@
-# This is the only GitHub Pages deployment workflow for this repo.
-# The published site root is the `public/` directory, uploaded as the Pages artifact.
-# The checker (scripts/check.py) uses only the Python standard library; no pip install needed.
-# Monitor esteno.io and deploy status page; runs on schedule (every 10 min) and on manual dispatch.
+# Monitor and Deploy
+#
+# monitor job:
+#   - checks out main (source + scripts)
+#   - checks out the `data` branch into ./data-branch (status.json, history.json)
+#   - runs check.py, pointing it at ./data-branch/ via env vars
+#   - force-pushes the two updated JSON files back to origin/data
+#
+# deploy job:
+#   - checks out main (source)
+#   - checks out `data` branch into ./data-branch
+#   - copies JSON files into public/, uploads public/ as the Pages artifact
+#   - deploys to GitHub Pages
+#
+# The `data` branch is force-pushed on every run; its git history is disposable.
+# status.json and history.json never touch main, so PRs against main cannot
+# conflict on those files.
 
 name: Monitor and Deploy
 
@@ -11,7 +24,7 @@ on:
     - cron: '*/10 * * * *'  # every 10 minutes
 
 permissions:
-  contents: write   # push updated status/history
+  contents: write   # push to data branch
   pages: write
   id-token: write
 
@@ -25,8 +38,15 @@ jobs:
     outputs:
       overall: ${{ steps.check.outputs.overall }}
     steps:
-      - name: Checkout
+      - name: Checkout main
         uses: actions/checkout@v4
+
+      - name: Checkout data branch
+        uses: actions/checkout@v4
+        with:
+          ref: data
+          path: data-branch
+          fetch-depth: 1
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -35,24 +55,23 @@ jobs:
 
       - name: Run status checker
         id: check
+        env:
+          STATUS_JSON_PATH: data-branch/status.json
+          HISTORY_JSON_PATH: data-branch/history.json
         run: python scripts/check.py
 
-      - name: Commit generated files
+      - name: Push updated data to data branch
         run: |
+          cd data-branch
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add public/status.json public/history.json
+          git add status.json history.json
           if git diff --staged --quiet; then
             echo "No changes to commit"
-            exit 0
+          else
+            git commit -m "Update status data $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           fi
-          git commit -m "chore: update status and history [skip ci]"
-          git push || true
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: 'public'
+          git push --force origin HEAD:data
 
   deploy:
     needs: monitor
@@ -61,8 +80,28 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
+      - name: Checkout main (source)
+        uses: actions/checkout@v4
+
+      - name: Checkout data branch
+        uses: actions/checkout@v4
+        with:
+          ref: data
+          path: data-branch
+          fetch-depth: 1
+
+      - name: Assemble site
+        run: |
+          cp data-branch/status.json  public/status.json
+          cp data-branch/history.json public/history.json
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
 
       - name: Deploy to GitHub Pages
         id: deploy
