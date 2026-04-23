@@ -7,63 +7,75 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="container">
-    <header>
-      <h1>LAAI Status</h1>
-      <p class="subtitle">Service status for <a href="https://esteno.io">esteno.io</a></p>
-    </header>
 
-    <section class="overall" aria-live="polite">
-      <h2>Overall status</h2>
-      <div id="overall-badge" class="badge">—</div>
-      <p id="last-checked" class="last-checked">Last checked: —</p>
-    </section>
+  <!-- ── Hero ─────────────────────────────────────────────────── -->
+  <header class="hero" role="banner">
+    <div class="container">
+      <p class="brand">LAAI</p>
+      <div id="hero-card" class="hero-card" aria-live="polite" aria-atomic="true">
+        <span id="hero-icon" class="hero-icon" aria-hidden="true"></span>
+        <span id="hero-label" class="hero-label">Checking…</span>
+      </div>
+      <p id="last-checked" class="hero-meta">Last checked: —</p>
+    </div>
+  </header>
 
-    <section class="uptime">
-      <h2>Uptime</h2>
-      <div class="uptime-cards">
-        <div class="uptime-card">
-          <span class="uptime-value" id="uptime-24h">—</span>
-          <span class="uptime-label">Last 24 hours</span>
-        </div>
-        <div class="uptime-card">
-          <span class="uptime-value" id="uptime-7d">—</span>
-          <span class="uptime-label">Last 7 days</span>
-        </div>
+  <main class="container">
+
+    <!-- ── 90-day uptime ──────────────────────────────────────── -->
+    <section class="section" aria-labelledby="uptime-heading">
+      <div class="section-header">
+        <h2 id="uptime-heading" class="section-title">Uptime</h2>
+        <span id="uptime-90d" class="uptime-overall" aria-label="90-day uptime">—</span>
+      </div>
+
+      <div id="uptime-bars" class="uptime-rows">
+        <!-- Populated by app.js -->
       </div>
     </section>
 
-    <section class="services">
-      <h2>Services</h2>
+    <!-- ── Services ───────────────────────────────────────────── -->
+    <section class="section" aria-labelledby="services-heading">
+      <h2 id="services-heading" class="section-title">Services</h2>
       <div id="services-list" class="services-list">
-        <!-- Filled by app.js -->
+        <!-- Populated by app.js -->
       </div>
     </section>
 
-    <section class="incidents">
-      <h2>Recent incidents</h2>
-      <div class="table-wrap">
+    <!-- ── Recent checks ──────────────────────────────────────── -->
+    <section class="section" aria-labelledby="checks-heading">
+      <h2 id="checks-heading" class="section-title">Recent checks</h2>
+      <div class="table-wrap" role="region" aria-labelledby="checks-heading" tabindex="0">
         <table>
           <thead>
             <tr>
-              <th>Time (UTC)</th>
-              <th>Service</th>
-              <th>Status</th>
-              <th>HTTP</th>
-              <th>Response</th>
+              <th scope="col">Time (UTC)</th>
+              <th scope="col">Service</th>
+              <th scope="col">Status</th>
+              <th scope="col" class="num">HTTP</th>
+              <th scope="col" class="num">Response</th>
             </tr>
           </thead>
-          <tbody id="incidents-body">
+          <tbody id="checks-body">
             <tr><td colspan="5">Loading…</td></tr>
           </tbody>
         </table>
       </div>
     </section>
 
-    <footer>
-      <p>Updated by GitHub Actions every 10 minutes.</p>
-    </footer>
-  </div>
+  </main>
+
+  <!-- ── Footer ────────────────────────────────────────────────── -->
+  <footer class="site-footer" role="contentinfo">
+    <div class="container">
+      <span>Updated by GitHub Actions every 10 minutes &middot; <a href="https://esteno.io" target="_blank" rel="noopener">esteno.io</a></span>
+      <span id="footer-ts" class="footer-ts"></span>
+    </div>
+  </footer>
+
+  <!-- Tooltip (shared, moved by JS) -->
+  <div id="bar-tooltip" class="bar-tooltip" role="tooltip" aria-hidden="true"></div>
+
   <script src="app.js"></script>
 </body>
 </html>

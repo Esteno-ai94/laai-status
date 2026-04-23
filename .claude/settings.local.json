@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python scripts/check.py)",
+      "Read(//dev/**)",
+      "Bash(echo \"Workflow diff exit code: $?\")",
+      "Bash(python3 -c ' *)"
+    ]
+  }
+}
