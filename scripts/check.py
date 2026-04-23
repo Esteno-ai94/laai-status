@@ -13,9 +13,11 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 
 # Config
-PUBLIC_DIR = os.path.join(os.path.dirname(__file__), "..", "public")
-STATUS_FILE = os.path.join(PUBLIC_DIR, "status.json")
-HISTORY_FILE = os.path.join(PUBLIC_DIR, "history.json")
+# STATUS_JSON_PATH and HISTORY_JSON_PATH can be overridden via env vars so the
+# workflow can point the script at a data-branch working tree instead of public/.
+_PUBLIC_DIR = os.path.join(os.path.dirname(__file__), "..", "public")
+STATUS_FILE  = os.environ.get("STATUS_JSON_PATH",  os.path.join(_PUBLIC_DIR, "status.json"))
+HISTORY_FILE = os.environ.get("HISTORY_JSON_PATH", os.path.join(_PUBLIC_DIR, "history.json"))
 TIMEOUT_SEC = 15
 DEGRADED_MS = 5000
 # Retain records newer than this many days; cadence-independent.
@@ -121,7 +123,7 @@ def run_check() -> str:
     Perform a single check and update status/history.
     Returns the overall status label. Does not raise for normal monitoring failures.
     """
-    os.makedirs(PUBLIC_DIR, exist_ok=True)
+    os.makedirs(os.path.dirname(os.path.abspath(STATUS_FILE)), exist_ok=True)
 
     status_label, http_code, response_time_ms = check_url(SERVICE_URL, TIMEOUT_SEC)
     now = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
@@ -171,7 +173,7 @@ def main() -> int:
         # Truly unexpected: log once to stderr, then write down status and exit 0.
         print(f"[check.py] unexpected error: {e}", file=sys.stderr)
         now = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
-        os.makedirs(PUBLIC_DIR, exist_ok=True)
+        os.makedirs(os.path.dirname(os.path.abspath(STATUS_FILE)), exist_ok=True)
 
         fallback_status = {
             "updated": now,
