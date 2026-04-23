@@ -1,0 +1,15 @@
+{
+  "updated": "2026-04-23T06:40:09Z",
+  "updated": "2026-03-30T23:40:58Z",
+  "overall": "operational",
+  "services": [
+    {
+      "name": "Esteno Website",
+      "url": "https://esteno.io",
+      "status": "operational",
+      "http_status": 200,
+      "response_time_ms": 919.78
+      "response_time_ms": 520.8
+    }
+  ]
+}
