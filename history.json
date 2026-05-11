@@ -1965,5 +1965,12 @@
     "status": "operational",
     "http_status": 200,
     "response_time_ms": 752.57
+  },
+  {
+    "timestamp": "2026-05-11T15:21:47Z",
+    "service": "Esteno Website",
+    "status": "operational",
+    "http_status": 200,
+    "response_time_ms": 618.46
   }
 ]
