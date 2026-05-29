@@ -3344,5 +3344,12 @@
     "status": "operational",
     "http_status": 200,
     "response_time_ms": 634.28
+  },
+  {
+    "timestamp": "2026-05-29T11:47:25Z",
+    "service": "Esteno Website",
+    "status": "operational",
+    "http_status": 200,
+    "response_time_ms": 574.68
   }
 ]
