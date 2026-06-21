@@ -4828,5 +4828,12 @@
     "status": "operational",
     "http_status": 200,
     "response_time_ms": 862.31
+  },
+  {
+    "timestamp": "2026-06-21T16:48:53Z",
+    "service": "Esteno Website",
+    "status": "operational",
+    "http_status": 200,
+    "response_time_ms": 570.9
   }
 ]
