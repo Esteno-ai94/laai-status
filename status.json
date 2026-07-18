@@ -1,13 +1,13 @@
 {
-  "updated": "2026-07-18T22:08:48Z",
-  "overall": "operational",
+  "updated": "2026-07-18T22:31:42Z",
+  "overall": "down",
   "services": [
     {
       "name": "Esteno Website",
       "url": "https://esteno.io",
-      "status": "operational",
-      "http_status": 200,
-      "response_time_ms": 576.17
+      "status": "down",
+      "http_status": null,
+      "response_time_ms": null
     }
   ]
 }
