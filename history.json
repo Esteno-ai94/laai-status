@@ -8223,5 +8223,12 @@
     "status": "operational",
     "http_status": 200,
     "response_time_ms": 641.5
+  },
+  {
+    "timestamp": "2026-07-21T12:12:03Z",
+    "service": "Esteno Website",
+    "status": "operational",
+    "http_status": 200,
+    "response_time_ms": 431.85
   }
 ]
