@@ -12388,5 +12388,12 @@
     "status": "operational",
     "http_status": 200,
     "response_time_ms": 662.07
+  },
+  {
+    "timestamp": "2026-08-14T14:51:27Z",
+    "service": "Esteno Website",
+    "status": "operational",
+    "http_status": 200,
+    "response_time_ms": 591.11
   }
 ]
