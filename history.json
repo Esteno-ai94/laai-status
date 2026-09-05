@@ -22307,5 +22307,12 @@
     "status": "operational",
     "http_status": 200,
     "response_time_ms": 718.99
+  },
+  {
+    "timestamp": "2026-09-05T09:26:51Z",
+    "service": "Esteno Website",
+    "status": "operational",
+    "http_status": 200,
+    "response_time_ms": 597.93
   }
 ]
