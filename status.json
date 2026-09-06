@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-06T19:36:03Z",
+  "updated": "2026-09-06T19:44:30Z",
   "overall": "operational",
   "services": [
     {
@@ -7,7 +7,7 @@
       "url": "https://esteno.io",
       "status": "operational",
       "http_status": 200,
-      "response_time_ms": 591.91
+      "response_time_ms": 538.9
     }
   ]
 }
